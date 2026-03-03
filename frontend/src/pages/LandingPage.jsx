@@ -256,7 +256,7 @@ export default function LandingPage() {
                style={{ background: 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.35) 0%, transparent 65%)' }} />
 
           {/* Welcome heading */}
-          <div className="mb-8">
+          <div className="relative z-20 mb-8">
             <h2 className="text-3xl lg:text-4xl font-extrabold text-lifewood-darkSerpent">
               {activeForm === 'login' ? 'Welcome' : 'Request Access'}
             </h2>
@@ -268,7 +268,7 @@ export default function LandingPage() {
           </div>
 
           {/* Tab switcher */}
-          <div className="inline-flex rounded-xl bg-lifewood-paper p-1 mb-8 border border-lifewood-platinum w-full">
+          <div className="relative z-20 inline-flex rounded-xl bg-lifewood-paper p-1 mb-8 border border-lifewood-platinum w-full">
             <button
               onClick={() => setActiveForm('login')}
               className={`flex-1 py-3 text-base font-semibold rounded-lg transition-all duration-200 active:scale-[0.97] ${

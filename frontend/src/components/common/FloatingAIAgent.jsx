@@ -6,6 +6,7 @@ const PANEL_WIDTH = 500;
 const PANEL_HEIGHT = 650;
 const TOGGLE_SIZE = 64;
 const EDGE_GAP = 12;
+const CORNER_OFFSET = 24;
 const POSITION_STORAGE_KEY = 'lifewood_floating_ai_position';
 
 const clampToViewport = (x, y, isOpen) => {
@@ -22,12 +23,14 @@ const clampToViewport = (x, y, isOpen) => {
   };
 };
 
-const getDefaultPosition = () => {
+const getDefaultPosition = (isOpen = true) => {
   if (typeof window === 'undefined') return { x: EDGE_GAP, y: EDGE_GAP };
+  const width = isOpen ? PANEL_WIDTH : TOGGLE_SIZE;
+  const height = isOpen ? PANEL_HEIGHT : TOGGLE_SIZE;
   return clampToViewport(
-    window.innerWidth - PANEL_WIDTH - 24,
-    window.innerHeight - PANEL_HEIGHT - 24,
-    true
+    window.innerWidth - width - CORNER_OFFSET,
+    window.innerHeight - height - CORNER_OFFSET,
+    isOpen
   );
 };
 
@@ -48,22 +51,23 @@ const getSavedPosition = () => {
 
 export default function FloatingAIAgent() {
   const { user } = useAuthContext();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMinimizedPinned, setIsMinimizedPinned] = useState(true);
   const [dragTarget, setDragTarget] = useState(null);
   const [openPosition, setOpenPosition] = useState(() => {
     const saved = getSavedPosition();
     if (saved) return clampToViewport(saved.x, saved.y, true);
-    return getDefaultPosition();
+    return getDefaultPosition(true);
   });
-  const [minimizedPosition, setMinimizedPosition] = useState(() => {
-    const saved = getSavedPosition();
-    if (saved) return clampToViewport(saved.x, saved.y, false);
-    return getDefaultPosition();
-  });
+  const [minimizedPosition, setMinimizedPosition] = useState(() => getDefaultPosition(false));
 
   const panelRef = useRef(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const movedWhileDraggingRef = useRef(false);
+  const openOriginRef = useRef({
+    pinned: true,
+    position: getDefaultPosition(false),
+  });
 
   const startDrag = (event, target) => {
     if (event.button !== 0) return;
@@ -100,6 +104,7 @@ export default function FloatingAIAgent() {
           prev.x === clamped.x && prev.y === clamped.y ? prev : clamped
         );
       } else {
+        setIsMinimizedPinned(false);
         setMinimizedPosition((prev) =>
           prev.x === clamped.x && prev.y === clamped.y ? prev : clamped
         );
@@ -113,6 +118,19 @@ export default function FloatingAIAgent() {
       setDragTarget(null);
 
       if (wasDraggingMinimized && !moved) {
+        openOriginRef.current = isMinimizedPinned
+          ? { pinned: true, position: getDefaultPosition(false) }
+          : { pinned: false, position: { ...minimizedPosition } };
+
+        if (!isMinimizedPinned) {
+          setOpenPosition(
+            clampToViewport(
+              minimizedPosition.x,
+              minimizedPosition.y,
+              true
+            )
+          );
+        }
         setIsOpen(true);
       }
     };
@@ -124,12 +142,25 @@ export default function FloatingAIAgent() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragTarget]);
+  }, [dragTarget, isMinimizedPinned, minimizedPosition.x, minimizedPosition.y]);
 
   useEffect(() => {
-    setOpenPosition((prev) => clampToViewport(prev.x, prev.y, true));
-    setMinimizedPosition((prev) => clampToViewport(prev.x, prev.y, false));
-  }, [isOpen]);
+    const handleResize = () => {
+      if (isOpen) {
+        setOpenPosition((prev) => clampToViewport(prev.x, prev.y, true));
+        return;
+      }
+
+      if (isMinimizedPinned) {
+        setMinimizedPosition(getDefaultPosition(false));
+      } else {
+        setMinimizedPosition((prev) => clampToViewport(prev.x, prev.y, false));
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen, isMinimizedPinned]);
 
   useEffect(() => {
     try {
@@ -142,10 +173,15 @@ export default function FloatingAIAgent() {
   useEffect(() => {
     if (user) return;
 
-    const defaults = getDefaultPosition();
+    const defaults = getDefaultPosition(true);
     setOpenPosition(defaults);
-    setMinimizedPosition(clampToViewport(defaults.x, defaults.y, false));
-    setIsOpen(true);
+    setMinimizedPosition(getDefaultPosition(false));
+    setIsMinimizedPinned(true);
+    setIsOpen(false);
+    openOriginRef.current = {
+      pinned: true,
+      position: getDefaultPosition(false),
+    };
 
     try {
       localStorage.removeItem(POSITION_STORAGE_KEY);
@@ -162,11 +198,15 @@ export default function FloatingAIAgent() {
         ref={panelRef}
         type="button"
         onMouseDown={handleMinimizedDragStart}
-        className="fixed z-[70] w-16 h-16 rounded-full border border-white/30 bg-lifewood-darkSerpent/70 backdrop-blur-xl shadow-2xl text-white flex items-center justify-center hover:bg-lifewood-darkSerpent/80 transition-colors"
-        style={{ left: minimizedPosition.x, top: minimizedPosition.y }}
+        className="fixed z-[9999] w-16 h-16 rounded-full border border-white/30 bg-lifewood-darkSerpent/70 backdrop-blur-xl shadow-2xl text-white flex items-center justify-center hover:bg-lifewood-darkSerpent/80 transition-colors"
+        style={
+          isMinimizedPinned
+            ? { right: `${CORNER_OFFSET}px`, bottom: `${CORNER_OFFSET}px` }
+            : { left: minimizedPosition.x, top: minimizedPosition.y }
+        }
         aria-label="Open Lifewood AI Assistant"
       >
-        <Bot className="w-9 h-10 text-lifewood-saffaron" />
+        <Bot className="w-9 h-9 text-lifewood-saffaron" />
       </button>
     );
   }
@@ -194,9 +234,16 @@ export default function FloatingAIAgent() {
           <button
             type="button"
             onClick={() => {
-              setMinimizedPosition(
-                clampToViewport(openPosition.x, openPosition.y, false)
-              );
+              const origin = openOriginRef.current;
+              if (origin?.pinned) {
+                setIsMinimizedPinned(true);
+                setMinimizedPosition(getDefaultPosition(false));
+              } else {
+                setIsMinimizedPinned(false);
+                setMinimizedPosition(
+                  clampToViewport(origin.position.x, origin.position.y, false)
+                );
+              }
               setIsOpen(false);
             }}
             className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 text-white/90 flex items-center justify-center transition-colors"
