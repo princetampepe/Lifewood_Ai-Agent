@@ -202,7 +202,7 @@ export default function FloatingAIAgent() {
         style={
           isMinimizedPinned
             ? { right: `${CORNER_OFFSET}px`, bottom: `${CORNER_OFFSET}px` }
-            : { left: minimizedPosition.x, top: minimizedPosition.y }
+            : { left: `${minimizedPosition.x}px`, top: `${minimizedPosition.y}px` }
         }
         aria-label="Open Lifewood AI Assistant"
       >
@@ -215,7 +215,7 @@ export default function FloatingAIAgent() {
     <section
       ref={panelRef}
       className="fixed z-[70] w-[500px] h-[650px] rounded-2xl border border-white/25 bg-lifewood-darkSerpent/60 backdrop-blur-2xl shadow-2xl overflow-hidden"
-      style={{ left: openPosition.x, top: openPosition.y }}
+      style={{ left: `${openPosition.x}px`, top: `${openPosition.y}px` }}
       aria-label="Lifewood AI Assistant"
     >
       <header
